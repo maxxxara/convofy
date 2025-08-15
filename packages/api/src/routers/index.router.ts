@@ -6,6 +6,7 @@ import { z } from "zod";
 export const appRouter = t.router({
   user: userRouter,
   session: sessionRouter,
+  // TODO: REMOVE. JUST FOR TESTING
   health: t.procedure
     .input(
       z.object({
@@ -19,7 +20,6 @@ export const appRouter = t.router({
         value: input.name,
       };
     }),
-
   healthPost: t.procedure
     .input(z.object({ name: z.string() }))
     .mutation(async ({ input }) => {
