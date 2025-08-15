@@ -6,7 +6,7 @@ import { z } from "zod";
 
 export const appRouter = t.router({
   user: userRouter,
-  project: projectRouter,
+  // project: projectRouter,
   auth: authRouter,
   // TODO: REMOVE. JUST FOR TESTING
   health: t.procedure

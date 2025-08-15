@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { t } from "../lib/trpc";
 import { protectedProcedure, publicProcedure } from "../lib/procedures";
-import { prisma } from "../lib/prisma";
 import { TRPCError } from "@trpc/server";
+import { UserModel } from "../lib/schema";
 
 const updateCurrentUserSchema = z.object({
   name: z.string().min(1),
@@ -12,9 +12,7 @@ const updateCurrentUserSchema = z.object({
 
 export const userRouter = t.router({
   getCurrentUser: protectedProcedure.query(async ({ ctx }) => {
-    const user = await prisma.user.findUnique({
-      where: { id: ctx.user.userId },
-    });
+    const user = await UserModel.findById(ctx.user.userId);
 
     if (!user) {
       throw new TRPCError({
@@ -34,10 +32,7 @@ export const userRouter = t.router({
   updateCurrentUser: protectedProcedure
     .input(updateCurrentUserSchema)
     .mutation(async ({ ctx, input }) => {
-      const existingUser = await prisma.user.findUnique({
-        where: { id: ctx.user.userId },
-      });
-
+      const existingUser = await UserModel.findById(ctx.user.userId);
       if (!existingUser) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -46,8 +41,8 @@ export const userRouter = t.router({
       }
 
       if (existingUser.email !== input.email) {
-        const existingUserWithEmail = await prisma.user.findUnique({
-          where: { email: input.email },
+        const existingUserWithEmail = await UserModel.findOne({
+          email: input.email,
         });
 
         if (existingUserWithEmail) {
@@ -58,18 +53,17 @@ export const userRouter = t.router({
         }
       }
 
-      const user = await prisma.user.update({
-        where: { id: ctx.user.userId },
-        data: input,
+      const user = await UserModel.findByIdAndUpdate(ctx.user.userId, {
+        name: input.name,
+        surname: input.surname,
+        email: input.email,
       });
 
       return user;
     }),
 
   deleteCurrentUser: protectedProcedure.mutation(async ({ ctx }) => {
-    const user = await prisma.user.findUnique({
-      where: { id: ctx.user.userId },
-    });
+    const user = await UserModel.findById(ctx.user.userId);
 
     if (!user) {
       throw new TRPCError({
@@ -79,9 +73,7 @@ export const userRouter = t.router({
     }
 
     try {
-      await prisma.user.delete({
-        where: { id: ctx.user.userId },
-      });
+      await UserModel.findByIdAndDelete(ctx.user.userId);
     } catch (error) {
       console.log("Delete user error: ", error);
       throw new TRPCError({

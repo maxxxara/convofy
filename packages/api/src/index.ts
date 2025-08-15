@@ -1,9 +1,11 @@
+import "reflect-metadata";
 import express from "express";
 import cors from "cors";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers/index.router";
 import { createContext } from "./lib/context";
 import { renderTrpcPanel } from "trpc-ui";
+import { connectDB } from "./lib/db";
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -32,6 +34,7 @@ app.use("/panel", (_, res) => {
   );
 });
 
-app.listen(port, () => {
+app.listen(port, async () => {
+  await connectDB();
   console.log(`✅ API server listening on http://localhost:${port}`);
 });
