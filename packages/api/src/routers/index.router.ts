@@ -1,5 +1,6 @@
 import { t } from "../lib/trpc";
 import { authRouter } from "./auth.router";
+import { botRouter } from "./bot.router";
 import { projectRouter } from "./project.router";
 import projectUsersRouter from "./projectUsers.router";
 import { userRouter } from "./user.router";
@@ -10,6 +11,7 @@ export const appRouter = t.router({
   user: userRouter,
   project: projectRouter,
   projectUsers: projectUsersRouter,
+  bot: botRouter,
   // TODO: REMOVE. JUST FOR TESTING
   health: t.procedure
     .input(

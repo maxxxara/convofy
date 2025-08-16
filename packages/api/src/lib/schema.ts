@@ -38,7 +38,6 @@ export const Users = pgTable("users", {
 export const Projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title").notNull(),
-  logo: varchar("logo"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

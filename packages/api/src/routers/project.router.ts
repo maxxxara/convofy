@@ -7,33 +7,19 @@ import { generateToken } from "../lib/jwt";
 import { desc, eq, getTableColumns } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
-const createProjectSchema = z.object({
+const createOrUpdateProjectSchema = z.object({
   title: z.string().min(1),
-  logo: z.string().optional(),
 });
-
-const updateCurrentProjectSchema = z.object({
-  title: z.string().min(1).optional(),
-  logo: z.string().optional(),
-});
-
-// Type for projected project fields
-type ProjectSummary = {
-  _id: string;
-  title: string;
-  logo?: string;
-};
 
 export const projectRouter = t.router({
   create: protectedProcedure
-    .input(createProjectSchema)
+    .input(createOrUpdateProjectSchema)
     .mutation(async ({ input, ctx }) => {
       const result = await db.transaction(async (tx) => {
         const [project] = await tx
           .insert(Projects)
           .values({
             title: input.title,
-            logo: input.logo,
           })
           .returning();
 
@@ -93,7 +79,7 @@ export const projectRouter = t.router({
   }),
 
   updateCurrent: projectProcedure
-    .input(updateCurrentProjectSchema)
+    .input(createOrUpdateProjectSchema)
     .mutation(async ({ input, ctx }) => {
       if (input.title) {
         const [project] = await db
