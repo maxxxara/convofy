@@ -4,8 +4,9 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { generateToken } from "../lib/jwt";
 import { comparePasswords, hashPassword } from "../lib/helpers";
-import { EntityStatus, ProjectModel, UserModel } from "../lib/schema";
-
+import { db } from "../lib/db";
+import { userProjects, users } from "../lib/schema";
+import { eq } from "drizzle-orm";
 const registerSchema = z.object({
   name: z.string().min(1),
   surname: z.string().min(1),
@@ -23,24 +24,26 @@ export const authRouter = t.router({
     .input(registerSchema)
     .mutation(async ({ input }) => {
       const hashedPassword = await hashPassword(input.password);
-      const user = await UserModel.create({
-        name: input.name,
-        surname: input.surname,
-        email: input.email,
-        password: hashedPassword,
-      });
+      const user = await db
+        .insert(users)
+        .values({
+          name: input.name,
+          surname: input.surname,
+          email: input.email,
+          password: hashedPassword,
+        })
+        .returning();
 
       return generateToken({
-        userId: user._id.toHexString(),
+        userId: user[0].id,
         projectId: null,
       });
     }),
   login: publicProcedure.input(loginSchema).mutation(async ({ input }) => {
-    const user = await UserModel.findOne({
-      email: input.email,
-      status: EntityStatus.ACTIVE,
-    });
-
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, input.email));
     if (!user) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -60,17 +63,14 @@ export const authRouter = t.router({
       });
     }
 
-    const project = await ProjectModel.findOne({
-      user_projects: {
-        $elemMatch: {
-          user_id: user._id,
-        },
-      },
-    });
+    const [project] = await db
+      .select()
+      .from(userProjects)
+      .where(eq(userProjects.userId, user.id));
 
     return generateToken({
-      userId: user._id.toHexString(),
-      projectId: project?._id.toHexString() || null,
+      userId: user.id,
+      projectId: project?.projectId || null,
     });
   }),
 });

@@ -1,6 +1,6 @@
 import { t } from "../lib/trpc";
 import { authRouter } from "./auth.router";
-import { projectRouter } from "./project.router";
+// import { projectRouter } from "./project.router";
 import { userRouter } from "./user.router";
 import { z } from "zod";
 

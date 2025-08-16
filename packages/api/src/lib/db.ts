@@ -1,12 +1,5 @@
-import mongoose from "mongoose";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { settings } from "./settings";
+import { users } from "./schema";
 
-export async function connectDB() {
-  try {
-    await mongoose.connect(settings.db_connection_string);
-    console.log("MongoDB connected");
-  } catch (err) {
-    console.error("MongoDB connection error", err);
-    process.exit(1);
-  }
-}
+export const db = drizzle(settings.db_connection_string);
