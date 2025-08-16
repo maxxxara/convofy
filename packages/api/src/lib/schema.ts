@@ -8,6 +8,7 @@ import {
   integer,
   json,
   unique,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -23,7 +24,7 @@ export const processingStatusEnum = pgEnum("ProcessingStatus", [
 export const entityStatusEnum = pgEnum("EntityStatus", ["ACTIVE", "DISABLED"]);
 
 // Tables
-export const users = pgTable("users", {
+export const Users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name").notNull(),
   surname: varchar("surname").notNull(),
@@ -34,7 +35,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const projects = pgTable("projects", {
+export const Projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title").notNull(),
   logo: varchar("logo"),
@@ -43,32 +44,30 @@ export const projects = pgTable("projects", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const userProjects = pgTable(
+export const UserProjects = pgTable(
   "user_projects",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => Users.id, { onDelete: "cascade" }),
     projectId: uuid("project_id")
       .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+      .references(() => Projects.id, { onDelete: "cascade" }),
     role: userProjectRoleEnum("role").notNull(),
     status: entityStatusEnum("status").default("ACTIVE").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => ({
-    uniqueUserProject: unique().on(table.userId, table.projectId),
-  })
+  (table) => [unique().on(table.userId, table.projectId)]
 );
 
-export const projectLimits = pgTable("project_limits", {
+export const ProjectLimits = pgTable("project_limits", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
     .notNull()
     .unique()
-    .references(() => projects.id, { onDelete: "cascade" }),
+    .references(() => Projects.id, { onDelete: "cascade" }),
   remainingFaqQuestions: integer("remaining_faq_questions").notNull(),
   remainingDocuments: integer("remaining_documents").notNull(),
   remainingLiveInteractions: integer("remaining_live_interactions").notNull(),
@@ -77,23 +76,23 @@ export const projectLimits = pgTable("project_limits", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const bots = pgTable("bots", {
+export const Bots = pgTable("bots", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
     .notNull()
     .unique()
-    .references(() => projects.id, { onDelete: "cascade" }),
+    .references(() => Projects.id, { onDelete: "cascade" }),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const botConfigs = pgTable("bot_configs", {
+export const BotConfigs = pgTable("bot_configs", {
   id: uuid("id").primaryKey().defaultRandom(),
   botId: uuid("bot_id")
     .notNull()
     .unique()
-    .references(() => bots.id, { onDelete: "cascade" }),
+    .references(() => Bots.id, { onDelete: "cascade" }),
   name: varchar("name").notNull(),
   description: varchar("description").notNull(),
   welcomeMessage: varchar("welcome_message").notNull(),
@@ -101,24 +100,24 @@ export const botConfigs = pgTable("bot_configs", {
   avatar: varchar("avatar"),
 });
 
-export const sessions = pgTable("sessions", {
+export const Sessions = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => Users.id, { onDelete: "cascade" }),
   botId: uuid("bot_id")
     .notNull()
-    .references(() => bots.id, { onDelete: "cascade" }),
+    .references(() => Bots.id, { onDelete: "cascade" }),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const messages = pgTable("messages", {
+export const Messages = pgTable("messages", {
   id: uuid("id").primaryKey().defaultRandom(),
   sessionId: uuid("session_id")
     .notNull()
-    .references(() => sessions.id, { onDelete: "cascade" }),
+    .references(() => Sessions.id, { onDelete: "cascade" }),
   role: messageRoleEnum("role").notNull(),
   content: varchar("content").notNull(),
   isVisible: boolean("is_visible").default(true).notNull(),
@@ -127,11 +126,11 @@ export const messages = pgTable("messages", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const faqQuestions = pgTable("faq_questions", {
+export const FaqQuestions = pgTable("faq_questions", {
   id: uuid("id").primaryKey().defaultRandom(),
   botId: uuid("bot_id")
     .notNull()
-    .references(() => bots.id, { onDelete: "cascade" }),
+    .references(() => Bots.id, { onDelete: "cascade" }),
   question: varchar("question").notNull(),
   answer: varchar("answer").notNull(),
   embeddingStatus: processingStatusEnum("embedding_status")
@@ -143,11 +142,11 @@ export const faqQuestions = pgTable("faq_questions", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const documents = pgTable("documents", {
+export const Documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   botId: uuid("bot_id")
     .notNull()
-    .references(() => bots.id, { onDelete: "cascade" }),
+    .references(() => Bots.id, { onDelete: "cascade" }),
   title: varchar("title").notNull(),
   fileUrl: varchar("file_url").notNull(),
   embeddingStatus: processingStatusEnum("embedding_status")
@@ -158,11 +157,11 @@ export const documents = pgTable("documents", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const documentChunks = pgTable("document_chunks", {
+export const DocumentChunks = pgTable("document_chunks", {
   id: uuid("id").primaryKey().defaultRandom(),
   documentId: uuid("document_id")
     .notNull()
-    .references(() => documents.id, { onDelete: "cascade" }),
+    .references(() => Documents.id, { onDelete: "cascade" }),
   chunkIndex: integer("chunk_index").notNull(),
   chunkText: varchar("chunk_text").notNull(),
   embedding: varchar("embedding"),
@@ -171,11 +170,11 @@ export const documentChunks = pgTable("document_chunks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const liveInteractions = pgTable("live_interactions", {
+export const LiveInteractions = pgTable("live_interactions", {
   id: uuid("id").primaryKey().defaultRandom(),
   botId: uuid("bot_id")
     .notNull()
-    .references(() => bots.id, { onDelete: "cascade" }),
+    .references(() => Bots.id, { onDelete: "cascade" }),
   interaction: json("interaction"),
   results: json("results"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),

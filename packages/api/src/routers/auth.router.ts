@@ -5,8 +5,8 @@ import { TRPCError } from "@trpc/server";
 import { generateToken } from "../lib/jwt";
 import { comparePasswords, hashPassword } from "../lib/helpers";
 import { db } from "../lib/db";
-import { userProjects, users } from "../lib/schema";
-import { eq } from "drizzle-orm";
+import { UserProjects, Users } from "../lib/schema";
+import { eq, and } from "drizzle-orm";
 const registerSchema = z.object({
   name: z.string().min(1),
   surname: z.string().min(1),
@@ -24,8 +24,8 @@ export const authRouter = t.router({
     .input(registerSchema)
     .mutation(async ({ input }) => {
       const hashedPassword = await hashPassword(input.password);
-      const user = await db
-        .insert(users)
+      const [user] = await db
+        .insert(Users)
         .values({
           name: input.name,
           surname: input.surname,
@@ -35,15 +35,15 @@ export const authRouter = t.router({
         .returning();
 
       return generateToken({
-        userId: user[0].id,
+        userId: user.id,
         projectId: null,
       });
     }),
   login: publicProcedure.input(loginSchema).mutation(async ({ input }) => {
     const [user] = await db
       .select()
-      .from(users)
-      .where(eq(users.email, input.email));
+      .from(Users)
+      .where(and(eq(Users.email, input.email), eq(Users.status, "ACTIVE")));
     if (!user) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -65,8 +65,8 @@ export const authRouter = t.router({
 
     const [project] = await db
       .select()
-      .from(userProjects)
-      .where(eq(userProjects.userId, user.id));
+      .from(UserProjects)
+      .where(eq(UserProjects.userId, user.id));
 
     return generateToken({
       userId: user.id,

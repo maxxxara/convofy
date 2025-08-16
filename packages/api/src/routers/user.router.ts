@@ -2,7 +2,7 @@ import { z } from "zod";
 import { t } from "../lib/trpc";
 import { protectedProcedure, publicProcedure } from "../lib/procedures";
 import { TRPCError } from "@trpc/server";
-import { users } from "../lib/schema";
+import { Users } from "../lib/schema";
 import { db } from "../lib/db";
 import { eq } from "drizzle-orm";
 
@@ -16,8 +16,8 @@ export const userRouter = t.router({
   getCurrentUser: protectedProcedure.query(async ({ ctx }) => {
     const [user] = await db
       .select()
-      .from(users)
-      .where(eq(users.id, ctx.user.userId));
+      .from(Users)
+      .where(eq(Users.id, ctx.user.userId));
 
     if (!user) {
       throw new TRPCError({
@@ -39,8 +39,8 @@ export const userRouter = t.router({
     .mutation(async ({ ctx, input }) => {
       const [existingUser] = await db
         .select()
-        .from(users)
-        .where(eq(users.id, ctx.user.userId));
+        .from(Users)
+        .where(eq(Users.id, ctx.user.userId));
       if (!existingUser) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -51,8 +51,8 @@ export const userRouter = t.router({
       if (existingUser.email !== input.email) {
         const existingUserWithEmail = await db
           .select()
-          .from(users)
-          .where(eq(users.email, input.email));
+          .from(Users)
+          .where(eq(Users.email, input.email));
 
         if (existingUserWithEmail) {
           throw new TRPCError({
@@ -63,13 +63,13 @@ export const userRouter = t.router({
       }
 
       const [user] = await db
-        .update(users)
+        .update(Users)
         .set({
           name: input.name,
           surname: input.surname,
           email: input.email,
         })
-        .where(eq(users.id, ctx.user.userId))
+        .where(eq(Users.id, ctx.user.userId))
         .returning();
 
       return user;
@@ -78,8 +78,8 @@ export const userRouter = t.router({
   deleteCurrentUser: protectedProcedure.mutation(async ({ ctx }) => {
     const [user] = await db
       .select()
-      .from(users)
-      .where(eq(users.id, ctx.user.userId));
+      .from(Users)
+      .where(eq(Users.id, ctx.user.userId));
 
     if (!user) {
       throw new TRPCError({
@@ -89,7 +89,7 @@ export const userRouter = t.router({
     }
 
     try {
-      await db.delete(users).where(eq(users.id, ctx.user.userId));
+      await db.delete(Users).where(eq(Users.id, ctx.user.userId));
     } catch (error) {
       console.log("Delete user error: ", error);
       throw new TRPCError({
