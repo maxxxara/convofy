@@ -21,6 +21,14 @@ export const processingStatusEnum = pgEnum("ProcessingStatus", [
   "IN_PROGRESS",
   "READY",
 ]);
+export const botPublicationStatusEnum = pgEnum("BotPublicationStatus", [
+  "DRAFT",
+  "PUBLISHED",
+]);
+export const botPublicationChannelEnum = pgEnum("BotPublicationChannel", [
+  "TELEGRAM",
+  "WEB_WIDGET",
+]);
 export const entityStatusEnum = pgEnum("EntityStatus", ["ACTIVE", "DISABLED"]);
 
 // Tables
@@ -79,7 +87,6 @@ export const Bots = pgTable("bots", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
     .notNull()
-    .unique()
     .references(() => Projects.id, { onDelete: "cascade" }),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -97,16 +104,41 @@ export const BotConfigs = pgTable("bot_configs", {
   welcomeMessage: varchar("welcome_message").notNull(),
   personalityPrompt: varchar("personality_prompt"),
   avatar: varchar("avatar"),
+  channel: botPublicationChannelEnum("channel").notNull(),
+});
+
+export const BotPublications = pgTable("bot_publications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  botId: uuid("bot_id")
+    .notNull()
+    .unique()
+    .references(() => Bots.id, { onDelete: "cascade" }),
+  status: botPublicationStatusEnum("status").default("DRAFT").notNull(),
+  telegramToken: varchar("telegram_token"),
+  scriptConfig: json("script_config"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const Tickets = pgTable("tickets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  identifier: varchar("identifier").notNull(),
+  botId: uuid("bot_id").references(() => Bots.id, { onDelete: "cascade" }),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => Sessions.id, { onDelete: "cascade" }),
+  data: json("data"),
+  status: entityStatusEnum("status").default("ACTIVE").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const Sessions = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => Users.id, { onDelete: "cascade" }),
+  userId: varchar("user_id"),
   botId: uuid("bot_id")
     .notNull()
     .references(() => Bots.id, { onDelete: "cascade" }),
+  telegramThreadId: varchar("telegram_thread_id"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -4,6 +4,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "./routers/index.router";
 import { createContext } from "./lib/context";
 import { renderTrpcPanel } from "trpc-ui";
+import { activeTelegramBots } from "./services/telegram.service";
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -33,5 +34,6 @@ app.use("/panel", (_, res) => {
 });
 
 app.listen(port, async () => {
+  await activeTelegramBots();
   console.log(`✅ API server listening on http://localhost:${port}`);
 });
