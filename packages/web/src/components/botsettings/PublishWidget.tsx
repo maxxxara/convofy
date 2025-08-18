@@ -1,36 +1,84 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Send, Copy, Eye, Globe, Code, Info } from "lucide-react";
+import { Copy, Globe, Code, Info, CheckCircle } from "lucide-react";
+import { trpc } from "../../utils/trpc";
+import { useParams } from "react-router-dom";
 
-const widgetScript = `<!-- ChatBot Widget Script -->
+function PublishWidget() {
+  const { botId } = useParams();
+  const [copiedScript, setCopiedScript] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  // Get bot data
+
+  // Generate widget script with actual bot data
+  const generateWidgetScript = () => {
+    return `<!-- Convofy Widget Script -->
 <script>
   (function() {
-    var chatbotConfig = {
-      botId: '1',
-      apiUrl: 'https://api.ragchatbot.com',
-      position: 'bottom-right',
-      primaryColor: '#3b82f6',
-      avatar: 'Avatar',
-      welcomeMessage: 'Hello! How can I help you today?'
+    var convofyConfig = {
+      botId: '${botId}',
     };
     
     var script = document.createElement('script');
-    script.src = 'https://cdn.ragchatbot.com/widget.js';
+    script.src = 'http://localhost:5173/dist/widget/widget.iife.js'; // Replace with your widget URL
     script.async = true;
     script.onload = function() {
-      window.RagChatbot.init(chatbotConfig);
+      window.ConvofyWidget.init(convofyConfig);
     };
     document.head.appendChild(script);
   })();
 </script>`;
+  };
 
-function PublishWidget() {
+  // if (!botData) {
+  //   return (
+  //     <div className="space-y-6">
+  //       <Alert>
+  //         <Info className="h-4 w-4" />
+  //         <AlertDescription>
+  //           Please create a bot first before setting up the widget.
+  //         </AlertDescription>
+  //       </Alert>
+  //     </div>
+  //   );
+  // }
+
+  const widgetScript = generateWidgetScript();
+
   return (
     <div className="space-y-6">
+      {/* Bot Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="w-5 h-5" />
+            Widget Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Bot name</h3>
+              <p className="text-sm text-muted-foreground">
+                Web Widget Ready for Deployment
+              </p>
+            </div>
+            <Button
+              onClick={() => {}}
+              disabled={isPublishing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isPublishing ? "Publishing..." : "Publish Widget"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Installation Instructions */}
       <Card>
         <CardHeader>
@@ -49,6 +97,7 @@ function PublishWidget() {
                 "Copy the script code below",
                 "Paste it before the closing </body> tag of your website",
                 "The chat widget will appear automatically on your website",
+                "Customize the appearance and behavior through the bot settings",
               ].map((step, index) => (
                 <li key={index} className="flex gap-3">
                   <Badge
@@ -66,9 +115,23 @@ function PublishWidget() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label>Widget Script</Label>
-              <Button variant="outline" size="sm">
-                <Copy className="w-4 h-4 mr-2" />
-                Copy Script
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {}}
+                className={copiedScript ? "text-green-600" : ""}
+              >
+                {copiedScript ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Script
+                  </>
+                )}
               </Button>
             </div>
             <div className="bg-gray-900 text-gray-100 rounded-lg p-4 font-mono text-sm overflow-x-auto">
@@ -79,9 +142,10 @@ function PublishWidget() {
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              <strong>Note:</strong> The widget will automatically match your
-              bot's configuration including colors, welcome message, and
-              personality.
+              <strong>Note:</strong> The widget will automatically use your
+              bot's configuration including name, welcome message, and
+              personality. Make sure to replace the URLs with your production
+              endpoints.
             </AlertDescription>
           </Alert>
 
@@ -94,16 +158,18 @@ function PublishWidget() {
                 <li>• Squarespace</li>
                 <li>• Custom HTML sites</li>
                 <li>• React/Vue/Angular apps</li>
+                <li>• Any website with HTML access</li>
               </ul>
             </div>
             <div className="bg-muted/50 rounded-lg p-4">
               <h5 className="font-medium mb-2">📱 Features:</h5>
               <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• Mobile responsive</li>
-                <li>• Customizable colors</li>
+                <li>• Mobile responsive design</li>
+                <li>• Customizable colors & position</li>
                 <li>• Typing indicators</li>
-                <li>• Message history</li>
-                <li>• GDPR compliant</li>
+                <li>• Message history persistence</li>
+                <li>• Minimizable chat window</li>
+                <li>• Cross-browser compatible</li>
               </ul>
             </div>
           </div>

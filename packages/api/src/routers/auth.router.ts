@@ -5,8 +5,9 @@ import { TRPCError } from "@trpc/server";
 import { generateToken } from "../lib/jwt";
 import { comparePasswords, hashPassword } from "../lib/helpers";
 import { db } from "../lib/db";
-import { UserProjects, Users } from "../lib/schema";
+import { Projects, UserProjects, Users } from "../lib/schema";
 import { eq, and } from "drizzle-orm";
+import { createProject } from "../services/project.service";
 const registerSchema = z.object({
   name: z.string().min(1),
   surname: z.string().min(1),
@@ -34,10 +35,17 @@ export const authRouter = t.router({
         })
         .returning();
 
-      return generateToken({
+      const newProject = await createProject({
+        title: "Default Project",
         userId: user.id,
-        projectId: null,
       });
+
+      return {
+        token: generateToken({
+          userId: user.id,
+          projectId: newProject.project.id,
+        }),
+      };
     }),
   login: publicProcedure.input(loginSchema).mutation(async ({ input }) => {
     const [user] = await db
@@ -68,9 +76,11 @@ export const authRouter = t.router({
       .from(UserProjects)
       .where(eq(UserProjects.userId, user.id));
 
-    return generateToken({
-      userId: user.id,
-      projectId: project?.projectId || null,
-    });
+    return {
+      token: generateToken({
+        userId: user.id,
+        projectId: project?.projectId || null,
+      }),
+    };
   }),
 });

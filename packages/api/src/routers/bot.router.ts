@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import { t } from "../lib/trpc";
 import { projectProcedure } from "../lib/procedures";
-import { asc, eq, getTableColumns } from "drizzle-orm";
+import { and, asc, eq, getTableColumns } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 const createBotSchema = z.object({
@@ -88,28 +88,41 @@ export const botRouter = t.router({
       }
     }),
 
-  get: projectProcedure.query(async ({ ctx }) => {
-    const [bot] = await db
-      .select(getTableColumns(BotConfigs))
-      .from(BotConfigs)
-      .innerJoin(Bots, eq(BotConfigs.botId, Bots.id))
-      .where(eq(Bots.projectId, ctx.user.projectId));
+  get: projectProcedure
+    .input(z.object({ botId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      console.log("Getting bot: ", input.botId);
+      const [bot] = await db
+        .select({
+          ...getTableColumns(BotConfigs),
+          status: BotPublications.status,
+        })
+        .from(BotConfigs)
+        .innerJoin(Bots, eq(BotConfigs.botId, Bots.id))
+        .innerJoin(BotPublications, eq(Bots.id, BotPublications.botId))
+        .where(
+          and(eq(Bots.projectId, ctx.user.projectId), eq(Bots.id, input.botId))
+        );
 
-    if (!bot) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "You do not have a bot created",
-      });
-    }
+      if (!bot) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "You do not have a bot created",
+        });
+      }
 
-    return bot;
-  }),
+      return bot;
+    }),
 
   getAll: projectProcedure.query(async ({ ctx }) => {
     const bots = await db
-      .select(getTableColumns(BotConfigs))
+      .select({
+        ...getTableColumns(BotConfigs),
+        status: BotPublications.status,
+      })
       .from(BotConfigs)
       .leftJoin(Bots, eq(BotConfigs.botId, Bots.id))
+      .leftJoin(BotPublications, eq(Bots.id, BotPublications.botId))
       .where(eq(Bots.projectId, ctx.user.projectId))
       .orderBy(asc(Bots.createdAt));
     return bots;
@@ -142,6 +155,16 @@ export const botRouter = t.router({
       }
     }),
 
+  getPublication: projectProcedure
+    .input(z.object({ botId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const [botPublication] = await db
+        .select()
+        .from(BotPublications)
+        .where(eq(BotPublications.botId, input.botId));
+
+      return botPublication;
+    }),
   updatePublication: projectProcedure
     .input(updateBotPublicationSchema)
     .mutation(async ({ ctx, input }) => {
@@ -156,5 +179,13 @@ export const botRouter = t.router({
         .returning();
 
       return botPublication;
+    }),
+
+  delete: projectProcedure
+    .input(z.object({ botId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      console.log("Deleting bot: ", input.botId);
+      await db.delete(Bots).where(eq(Bots.id, input.botId));
+      return { message: "Bot deleted successfully" };
     }),
 });

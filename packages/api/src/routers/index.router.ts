@@ -4,6 +4,7 @@ import { botRouter } from "./bot.router";
 import { projectRouter } from "./project.router";
 import projectUsersRouter from "./projectUsers.router";
 import { userRouter } from "./user.router";
+import { widgetRouter } from "./widget.router";
 import { z } from "zod";
 
 export const appRouter = t.router({
@@ -12,6 +13,7 @@ export const appRouter = t.router({
   project: projectRouter,
   projectUsers: projectUsersRouter,
   bot: botRouter,
+  widget: widgetRouter,
   // TODO: REMOVE. JUST FOR TESTING
   health: t.procedure
     .input(

@@ -3,8 +3,15 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Bot, Globe, Send, Info } from "lucide-react";
+import type { BotGet } from "@/utils/types";
 
-export function BasicSettings() {
+export function BasicSettings({
+  bot,
+  setBot,
+}: {
+  bot: BotGet;
+  setBot: React.Dispatch<React.SetStateAction<BotGet | null>>;
+}) {
   return (
     <Card className="border-blue-100 bg-gradient-to-br from-blue-50/50 py-0 to-white shadow-sm">
       <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg gap-0 py-[12px]">
@@ -23,6 +30,10 @@ export function BasicSettings() {
             </Label>
             <Input
               id="botName"
+              value={bot?.name}
+              onChange={(e) => {
+                setBot({ ...bot, name: e.target.value });
+              }}
               placeholder="e.g., Customer Support Bot"
               className="border-blue-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
             />
@@ -41,6 +52,10 @@ export function BasicSettings() {
             </Label>
             <Input
               id="botDescription"
+              value={bot?.description}
+              onChange={(e) => {
+                setBot({ ...bot, description: e.target.value });
+              }}
               placeholder="e.g., We are a customer support bot"
               className="border-blue-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
             />

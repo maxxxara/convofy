@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -25,12 +25,90 @@ import {
   MessageSquare,
   Github,
   Chrome,
+  X,
 } from "lucide-react";
+import { trpc } from "@/utils/trpc";
+import type { TrpcClientError } from "@/utils/types";
 
 export function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const navigate = useNavigate();
+  const { mutateAsync: handleSignIn } = trpc.auth.login.useMutation();
+
+  const handleInputChange = (field: string, value: string) => {
+    if (field === "email") setEmail(value);
+    if (field === "password") setPassword(value);
+
+    // Clear field-specific error when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    // Clear previous errors
+    setError(null);
+    setFieldErrors({});
+
+    await handleSignIn({
+      email,
+      password,
+    })
+      .then((res) => {
+        localStorage.setItem("token", res.token);
+        navigate("/");
+      })
+      .catch((err: TrpcClientError) => {
+        console.log("Error: ", err);
+
+        // Clear previous errors
+        setError(null);
+        setFieldErrors({});
+
+        try {
+          // Parse validation errors from the error message
+          const errorData = JSON.parse(err.message);
+          if (Array.isArray(errorData)) {
+            const newFieldErrors: Record<string, string> = {};
+
+            errorData.forEach((validationError: any) => {
+              if (validationError.path && validationError.path.length > 0) {
+                const fieldName = validationError.path[0];
+                // Map backend field names to frontend field names
+                const fieldMapping: Record<string, string> = {
+                  email: "email",
+                  password: "password",
+                };
+                const frontendFieldName = fieldMapping[fieldName] || fieldName;
+                newFieldErrors[frontendFieldName] = validationError.message;
+              }
+            });
+
+            setFieldErrors(newFieldErrors);
+
+            // Set a general error message if no specific field errors
+            if (Object.keys(newFieldErrors).length === 0) {
+              setError("Please check your input and try again");
+            }
+          } else {
+            setError(err.message || "An error occurred during sign in");
+          }
+        } catch (parseError) {
+          // If we can't parse the error, show the original message
+          setError(err.message || "An error occurred during sign in");
+        }
+      });
+  };
 
   const features = [
     {
@@ -181,7 +259,7 @@ export function SignIn() {
               </div>
 
               {/* Email & Password Form */}
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-slate-700 font-medium">
                     Email address
@@ -193,10 +271,22 @@ export function SignIn() {
                       type="email"
                       placeholder="Enter your email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
+                      onChange={(e) =>
+                        handleInputChange("email", e.target.value)
+                      }
+                      className={`pl-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white ${
+                        fieldErrors.email
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                     />
                   </div>
+                  {fieldErrors.email && (
+                    <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                      <X className="w-3 h-3" />
+                      {fieldErrors.email}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -213,8 +303,14 @@ export function SignIn() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
+                      onChange={(e) =>
+                        handleInputChange("password", e.target.value)
+                      }
+                      className={`pl-10 pr-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white ${
+                        fieldErrors.password
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                     />
                     <Button
                       type="button"
@@ -230,6 +326,12 @@ export function SignIn() {
                       )}
                     </Button>
                   </div>
+                  {fieldErrors.password && (
+                    <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                      <X className="w-3 h-3" />
+                      {fieldErrors.password}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -254,7 +356,17 @@ export function SignIn() {
                   </Link>
                 </div>
 
-                <Button className="w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg">
+                {error && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <X className="w-3 h-3" />
+                    {error}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg"
+                >
                   Sign in to dashboard
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>

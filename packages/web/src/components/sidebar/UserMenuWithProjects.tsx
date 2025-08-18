@@ -10,23 +10,30 @@ import {
 import { User, Settings, LogOut, Check, Plus, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import UserAvatar from "../utils/UserAvatar";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 
 function ProjectList() {
+  const { data: projects } = trpc.project.getAll.useQuery();
+  const { data: currentProject } = trpc.project.getCurrent.useQuery();
   return (
     <>
       <DropdownMenuLabel>Projects</DropdownMenuLabel>
-      {[1, 2, 3].map((project) => (
+      {projects?.map((project) => (
         <DropdownMenuItem
-          key={project}
+          key={project.id}
           className={cn(
             "flex items-center justify-between p-3",
-            project === 1 && "bg-accent/50"
+            project.id === currentProject?.id && "bg-accent/50"
           )}
         >
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">Project {project}</span>
-              {project === 1 && <Check className="w-4 h-4" />}
+              <span className="font-medium text-sm">{project.title}</span>
+              {project.id === currentProject?.id && (
+                <Check className="w-4 h-4" />
+              )}
             </div>
           </div>
         </DropdownMenuItem>
@@ -40,6 +47,7 @@ function ProjectList() {
 }
 
 function UserActions() {
+  const navigate = useNavigate();
   return (
     <>
       <DropdownMenuLabel>My Account</DropdownMenuLabel>
@@ -52,7 +60,13 @@ function UserActions() {
         Settings
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem className="text-red-600 focus:text-red-600">
+      <DropdownMenuItem
+        onClick={() => {
+          localStorage.removeItem("token");
+          navigate("/signin");
+        }}
+        className="text-red-600 focus:text-red-600"
+      >
         <LogOut className="w-4 h-4 mr-2" />
         Log out
       </DropdownMenuItem>
@@ -65,6 +79,8 @@ export function UserMenuWithProjects({
 }: {
   collapsed: boolean;
 }) {
+  const { data: currentUser } = trpc.user.getCurrentUser.useQuery();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -84,8 +100,12 @@ export function UserMenuWithProjects({
             <div className="flex items-center gap-3 w-full">
               <UserAvatar />
               <div className="text-left flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">John Doe</p>
-                <p className="text-xs text-muted-foreground truncate">Figma</p>
+                <p className="text-sm font-medium truncate">
+                  {currentUser?.name} {currentUser?.surname}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {currentUser?.email}
+                </p>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
             </div>

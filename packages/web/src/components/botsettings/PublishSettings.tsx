@@ -12,10 +12,11 @@ import { Send, Globe, Rocket, Zap, CheckCircle } from "lucide-react";
 import { useState } from "react";
 import PublishWidget from "./PublishWidget";
 import PublishTelegram from "./PublishTelegram";
+import type { BotGet } from "@/utils/types";
 
 const platforms = [
   {
-    id: "website",
+    id: "WEB_WIDGET",
     name: "Website Widget",
     icon: Globe,
     description: "Embed chat widget on your website",
@@ -24,7 +25,7 @@ const platforms = [
     borderColor: "border-blue-100",
   },
   {
-    id: "telegram",
+    id: "TELEGRAM",
     name: "Telegram Bot",
     icon: Send,
     description: "Deploy as a Telegram bot",
@@ -34,11 +35,13 @@ const platforms = [
   },
 ];
 
-export function PublishSettings() {
-  const [selectedPlatform, setSelectedPlatform] = useState("website");
-
-  const selectedPlatformData = platforms.find((p) => p.id === selectedPlatform);
-
+export function PublishSettings({
+  bot,
+  setBot,
+}: {
+  bot: BotGet;
+  setBot: React.Dispatch<React.SetStateAction<BotGet | null>>;
+}) {
   return (
     <div className="space-y-6">
       <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white shadow-sm py-0">
@@ -60,7 +63,7 @@ export function PublishSettings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {platforms.map((platform) => {
                 const IconComponent = platform.icon;
-                const isSelected = selectedPlatform === platform.id;
+                const isSelected = bot.channel === platform.id;
 
                 return (
                   <Card
@@ -70,7 +73,12 @@ export function PublishSettings() {
                         ? `${platform.borderColor} border-2 shadow-md`
                         : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
                     }`}
-                    onClick={() => setSelectedPlatform(platform.id)}
+                    onClick={() =>
+                      setBot({
+                        ...bot,
+                        channel: platform.id as "WEB_WIDGET" | "TELEGRAM",
+                      })
+                    }
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
@@ -105,8 +113,8 @@ export function PublishSettings() {
       </Card>
 
       <div className="mt-6">
-        {selectedPlatform === "website" && <PublishWidget />}
-        {selectedPlatform === "telegram" && <PublishTelegram />}
+        {bot.channel === "WEB_WIDGET" && <PublishWidget />}
+        {bot.channel === "TELEGRAM" && <PublishTelegram />}
       </div>
     </div>
   );

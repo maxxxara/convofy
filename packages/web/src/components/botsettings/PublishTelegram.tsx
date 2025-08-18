@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
@@ -12,8 +12,45 @@ import {
   Copy,
   AlertCircle,
 } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { trpc } from "@/utils/trpc";
+import { toast } from "sonner";
 
 function PublishTelegram() {
+  const [telegramToken, setTelegramToken] = useState("");
+
+  const { botId } = useParams();
+  const trpcUtils = trpc.useUtils();
+  const navigate = useNavigate();
+  if (!botId) {
+    navigate("/bots");
+  }
+  const { data: botPublication } = trpc.bot.getPublication.useQuery({
+    botId: botId!,
+  });
+
+  const { mutateAsync: updatePublication } =
+    trpc.bot.updatePublication.useMutation();
+
+  useEffect(() => {
+    if (botPublication) {
+      setTelegramToken(botPublication.telegramToken || "");
+    }
+  }, [botPublication]);
+
+  const handleTelegramTokenSubmit = async () => {
+    if (!botPublication) return;
+    if (!telegramToken.trim()) return;
+    await updatePublication({
+      botPublicationId: botPublication.id,
+      scriptConfig: botPublication.scriptConfig || {},
+      status: "DRAFT",
+      telegramToken: telegramToken,
+    });
+    await trpcUtils.bot.getPublication.invalidate({ botId: botId! });
+    toast.success("Bot token updated successfully");
+  };
+
   return (
     <div className="space-y-6">
       {/* Token Configuration */}
@@ -29,9 +66,11 @@ function PublishTelegram() {
                 id="telegramToken"
                 type="password"
                 placeholder="1234567890:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-                className="flex-1"
+                value={telegramToken}
+                onChange={(e) => setTelegramToken(e.target.value)}
+                className="flex-1 mt-0"
               />
-              <Button>
+              <Button onClick={handleTelegramTokenSubmit}>
                 <CheckCircle className="w-4 h-4" />
                 Connect
               </Button>

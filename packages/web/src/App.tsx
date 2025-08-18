@@ -5,7 +5,6 @@ import { Sidebar } from "./components/utils/Sidebar";
 import { Dashboard } from "./pages/Dashboard";
 import { BotsManager } from "./pages/BotsManager";
 import { BotSettings } from "./pages/BotSettings";
-import { BotPublication } from "./pages/BotPublication";
 import { KnowledgeBase } from "./pages/KnowledgeBase";
 import { KnowledgeUpload } from "./pages/KnowledgeUpload";
 import { ChatHistory } from "./pages/ChatHistory";
@@ -58,14 +57,7 @@ function App() {
             </SidebarLayout>
           }
         />
-        <Route
-          path="/bots/publication/:botId?"
-          element={
-            <SidebarLayout>
-              <BotPublication />
-            </SidebarLayout>
-          }
-        />
+
         <Route
           path="/knowledge"
           element={

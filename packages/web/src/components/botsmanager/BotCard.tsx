@@ -10,13 +10,19 @@ import { MoreVertical, Settings, Eye, Copy, Trash2 } from "lucide-react";
 import UserAvatar from "../utils/UserAvatar";
 import { Badge } from "../ui/badge";
 import { useNavigate } from "react-router-dom";
+import type { BotGetAll } from "@/utils/types";
+import { trpc } from "@/utils/trpc";
+import { toast } from "sonner";
 
-export function BotCard() {
+export const BotCard = ({ bot }: { bot: BotGetAll }) => {
   const navigate = useNavigate();
+  const { mutateAsync: deleteBot } = trpc.bot.delete.useMutation();
+  const trpcUtils = trpc.useUtils();
+
   return (
     <Card
-      onClick={() => navigate("/bots/settings/1")}
-      className="bg-white border border-slate-200/60 w-fit shadow-sm py-[14px] hover:shadow-md transition-all duration-200 hover:border-slate-300/60 cursor-pointer"
+      onClick={() => navigate(`/bots/settings/${bot.botId}`)}
+      className="bg-white border border-slate-200/60 w-full shadow-sm py-[14px] hover:shadow-md transition-all duration-200 hover:border-slate-300/60 cursor-pointer"
     >
       <CardContent className="py-0 px-[12px] flex items-start justify-between">
         <div className="flex flex-col gap-[12px]">
@@ -24,10 +30,10 @@ export function BotCard() {
             <UserAvatar initials="F" className="bg-sky-200 text-sky-800" />
             <div className="flex flex-col gap-[6px]">
               <CardTitle className="text-sm font-semibold text-slate-900 leading-tight">
-                Figma Bot
+                {bot.name}
               </CardTitle>
               <p className="text-xs text-slate-500 leading-tight truncate">
-                Design assistant for Figma workflows
+                {bot.description}
               </p>
             </div>
           </div>
@@ -36,10 +42,10 @@ export function BotCard() {
               variant="default"
               className="text-xs bg-slate-100 text-slate-800"
             >
-              Published
+              {bot.status}
             </Badge>
             <Badge variant="default" className="text-xs bg-blue-500 text-white">
-              Telegram
+              {bot.channel}
             </Badge>
           </div>
         </div>
@@ -54,19 +60,25 @@ export function BotCard() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem className="text-sm">
+            <DropdownMenuItem
+              className="text-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/bots/settings/${bot.botId}`);
+              }}
+            >
               <Settings className="w-3 h-3 mr-2" />
               Settings
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-sm">
-              <Eye className="w-3 h-3 mr-2" />
-              Analytics
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-sm">
-              <Copy className="w-3 h-3 mr-2" />
-              Duplicate
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-sm text-destructive">
+            <DropdownMenuItem
+              className="text-sm text-destructive"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await deleteBot({ botId: bot.botId });
+                await trpcUtils.bot.getAll.invalidate();
+                toast.success("Bot deleted successfully");
+              }}
+            >
               <Trash2 className="w-3 h-3 mr-2" />
               Delete
             </DropdownMenuItem>
@@ -75,4 +87,4 @@ export function BotCard() {
       </CardContent>
     </Card>
   );
-}
+};

@@ -10,8 +10,8 @@ import {
   Sparkles,
   Pencil,
 } from "lucide-react";
-import type { BotData } from "./types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { BotGet } from "@/utils/types";
 
 const personalityTemplates = [
   {
@@ -43,7 +43,13 @@ const personalityTemplates = [
   },
 ];
 
-export function PersonalitySettings() {
+export function PersonalitySettings({
+  bot,
+  setBot,
+}: {
+  bot: BotGet;
+  setBot: React.Dispatch<React.SetStateAction<BotGet | null>>;
+}) {
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
 
@@ -51,6 +57,18 @@ export function PersonalitySettings() {
     setSelectedTemplate(index);
     setCustomPrompt(personalityTemplates[index].prompt);
   };
+
+  useEffect(() => {
+    if (bot && customPrompt === "") {
+      setCustomPrompt(bot.personalityPrompt || "");
+    }
+  }, [bot]);
+
+  useEffect(() => {
+    if (customPrompt) {
+      setBot({ ...bot, personalityPrompt: customPrompt });
+    }
+  }, [customPrompt]);
 
   return (
     <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white shadow-sm py-0">

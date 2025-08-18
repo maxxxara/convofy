@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -12,7 +12,6 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Separator } from "../components/ui/separator";
 import { Badge } from "../components/ui/badge";
-import { Progress } from "../components/ui/progress";
 import {
   Bot,
   Mail,
@@ -27,12 +26,36 @@ import {
   Github,
   Chrome,
   User,
-  Building,
   Check,
   X,
   Star,
 } from "lucide-react";
+import { trpc } from "@/utils/trpc";
+import { TRPCClientError } from "@trpc/client";
+import type { TrpcClientError } from "@/utils/types";
 
+const features = [
+  {
+    icon: Bot,
+    title: "AI-Powered Chatbots",
+    description: "Create intelligent conversational AI for your business",
+  },
+  {
+    icon: Zap,
+    title: "Lightning Fast Setup",
+    description: "Deploy your chatbot in minutes, not hours",
+  },
+  {
+    icon: Users,
+    title: "Team Collaboration",
+    description: "Work together with your team on chatbot projects",
+  },
+  {
+    icon: MessageSquare,
+    title: "Multi-Channel Support",
+    description: "Deploy across websites, Telegram, and more",
+  },
+];
 export function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -40,52 +63,14 @@ export function SignUp() {
     firstName: "",
     lastName: "",
     email: "",
-    company: "",
     password: "",
     confirmPassword: "",
+    isTermsAccepted: false,
   });
-
-  const passwordRequirements = [
-    {
-      text: "At least 8 characters",
-      met: formData.password.length >= 8,
-    },
-    {
-      text: "One uppercase letter",
-      met: /[A-Z]/.test(formData.password),
-    },
-    {
-      text: "One lowercase letter",
-      met: /[a-z]/.test(formData.password),
-    },
-    {
-      text: "One number",
-      met: /\d/.test(formData.password),
-    },
-  ];
-
-  const features = [
-    {
-      icon: Bot,
-      title: "AI-Powered Chatbots",
-      description: "Create intelligent conversational AI for your business",
-    },
-    {
-      icon: Zap,
-      title: "Lightning Fast Setup",
-      description: "Deploy your chatbot in minutes, not hours",
-    },
-    {
-      icon: Users,
-      title: "Team Collaboration",
-      description: "Work together with your team on chatbot projects",
-    },
-    {
-      icon: MessageSquare,
-      title: "Multi-Channel Support",
-      description: "Deploy across websites, Telegram, and more",
-    },
-  ];
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const navigate = useNavigate();
+  const { mutateAsync: handleSignUp } = trpc.auth.register.useMutation();
 
   const benefits = [
     "Free 14-day trial with full access",
@@ -94,11 +79,77 @@ export function SignUp() {
     "24/7 customer support",
   ];
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear field-specific error when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
   };
 
-  const passwordStrength = passwordRequirements.filter((req) => req.met).length;
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    await handleSignUp({
+      name: formData.firstName,
+      surname: formData.lastName,
+      email: formData.email,
+      password: formData.password,
+    })
+      .then((res) => {
+        localStorage.setItem("token", res.token);
+        navigate("/");
+      })
+      .catch((err: TrpcClientError) => {
+        console.log("Error: ", err);
+
+        // Clear previous errors
+        setError(null);
+        setFieldErrors({});
+
+        try {
+          // Parse validation errors from the error message
+          const errorData = JSON.parse(err.message);
+          if (Array.isArray(errorData)) {
+            const newFieldErrors: Record<string, string> = {};
+
+            errorData.forEach((validationError: any) => {
+              if (validationError.path && validationError.path.length > 0) {
+                const fieldName = validationError.path[0];
+                // Map backend field names to frontend field names
+                const fieldMapping: Record<string, string> = {
+                  name: "firstName",
+                  surname: "lastName",
+                  email: "email",
+                  password: "password",
+                };
+                const frontendFieldName = fieldMapping[fieldName] || fieldName;
+                newFieldErrors[frontendFieldName] = validationError.message;
+              }
+            });
+
+            setFieldErrors(newFieldErrors);
+
+            // Set a general error message if no specific field errors
+            if (Object.keys(newFieldErrors).length === 0) {
+              setError("Please check your input and try again");
+            }
+          } else {
+            setError(err.message || "An error occurred during sign up");
+          }
+        } catch (parseError) {
+          // If we can't parse the error, show the original message
+          setError(err.message || "An error occurred during sign up");
+        }
+      });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex">
@@ -251,7 +302,7 @@ export function SignUp() {
               </div>
 
               {/* Sign Up Form */}
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 {/* Name Fields */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -271,9 +322,19 @@ export function SignUp() {
                         onChange={(e) =>
                           handleInputChange("firstName", e.target.value)
                         }
-                        className="pl-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
+                        className={`pl-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white ${
+                          fieldErrors.firstName
+                            ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                            : ""
+                        }`}
                       />
                     </div>
+                    {fieldErrors.firstName && (
+                      <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                        <X className="w-3 h-3" />
+                        {fieldErrors.firstName}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label
@@ -290,8 +351,18 @@ export function SignUp() {
                       onChange={(e) =>
                         handleInputChange("lastName", e.target.value)
                       }
-                      className="h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
+                      className={`h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white ${
+                        fieldErrors.lastName
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                     />
+                    {fieldErrors.lastName && (
+                      <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                        <X className="w-3 h-3" />
+                        {fieldErrors.lastName}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -309,31 +380,19 @@ export function SignUp() {
                       onChange={(e) =>
                         handleInputChange("email", e.target.value)
                       }
-                      className="pl-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
+                      className={`pl-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white ${
+                        fieldErrors.email
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="company"
-                    className="text-slate-700 font-medium"
-                  >
-                    Company name
-                  </Label>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                    <Input
-                      id="company"
-                      type="text"
-                      placeholder="Your Company"
-                      value={formData.company}
-                      onChange={(e) =>
-                        handleInputChange("company", e.target.value)
-                      }
-                      className="pl-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
-                    />
-                  </div>
+                  {fieldErrors.email && (
+                    <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                      <X className="w-3 h-3" />
+                      {fieldErrors.email}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -353,7 +412,11 @@ export function SignUp() {
                       onChange={(e) =>
                         handleInputChange("password", e.target.value)
                       }
-                      className="pl-10 pr-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white"
+                      className={`pl-10 pr-10 h-11 border-slate-200 focus:border-blue-400 focus:ring-blue-400/20 bg-white ${
+                        fieldErrors.password
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                     />
                     <Button
                       type="button"
@@ -369,45 +432,11 @@ export function SignUp() {
                       )}
                     </Button>
                   </div>
-
-                  {/* Password Requirements */}
-                  {formData.password && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-600">
-                          Password strength:
-                        </span>
-                        <Progress
-                          value={(passwordStrength / 4) * 100}
-                          className="h-1.5 flex-1"
-                        />
-                        <span className="text-xs text-slate-600">
-                          {passwordStrength === 4
-                            ? "Strong"
-                            : passwordStrength >= 2
-                            ? "Medium"
-                            : "Weak"}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {passwordRequirements.map((req, index) => (
-                          <div key={index} className="flex items-center gap-1">
-                            {req.met ? (
-                              <Check className="w-3 h-3 text-green-600" />
-                            ) : (
-                              <X className="w-3 h-3 text-slate-400" />
-                            )}
-                            <span
-                              className={
-                                req.met ? "text-green-600" : "text-slate-500"
-                              }
-                            >
-                              {req.text}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  {fieldErrors.password && (
+                    <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                      <X className="w-3 h-3" />
+                      {fieldErrors.password}
+                    </p>
                   )}
                 </div>
 
@@ -446,13 +475,6 @@ export function SignUp() {
                       )}
                     </Button>
                   </div>
-                  {formData.confirmPassword &&
-                    formData.password !== formData.confirmPassword && (
-                      <p className="text-xs text-red-600 flex items-center gap-1">
-                        <X className="w-3 h-3" />
-                        Passwords do not match
-                      </p>
-                    )}
                 </div>
 
                 {/* Terms & Privacy */}
@@ -461,6 +483,10 @@ export function SignUp() {
                     id="terms"
                     type="checkbox"
                     className="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2 mt-0.5"
+                    checked={formData.isTermsAccepted}
+                    onChange={(e) =>
+                      handleInputChange("isTermsAccepted", e.target.checked)
+                    }
                   />
                   <Label
                     htmlFor="terms"
@@ -482,6 +508,12 @@ export function SignUp() {
                     </Link>
                   </Label>
                 </div>
+                {error && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <X className="w-3 h-3" />
+                    {error}
+                  </p>
+                )}
 
                 <Button className="w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg">
                   Create free account

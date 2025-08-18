@@ -6,6 +6,7 @@ import { Projects, UserProjects, ProjectLimits } from "../lib/schema";
 import { generateToken } from "../lib/jwt";
 import { desc, eq, getTableColumns } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { createProject } from "../services/project.service";
 
 const createOrUpdateProjectSchema = z.object({
   title: z.string().min(1),
@@ -15,40 +16,9 @@ export const projectRouter = t.router({
   create: protectedProcedure
     .input(createOrUpdateProjectSchema)
     .mutation(async ({ input, ctx }) => {
-      const result = await db.transaction(async (tx) => {
-        const [project] = await tx
-          .insert(Projects)
-          .values({
-            title: input.title,
-          })
-          .returning();
-
-        const [[userProject], [projectLimit]] = await Promise.all([
-          tx
-            .insert(UserProjects)
-            .values({
-              userId: ctx.user.userId,
-              projectId: project.id,
-              role: "OWNER",
-            })
-            .returning(),
-          tx
-            .insert(ProjectLimits)
-            .values({
-              projectId: project.id,
-              remainingFaqQuestions: 100,
-              remainingDocuments: 50,
-              remainingLiveInteractions: 1000,
-              remainingUsersCount: 10,
-            })
-            .returning(),
-        ]);
-
-        return {
-          project,
-          userProject,
-          projectLimit,
-        };
+      const result = await createProject({
+        title: input.title,
+        userId: ctx.user.userId,
       });
 
       const token = generateToken({

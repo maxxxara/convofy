@@ -139,6 +139,7 @@ export const Sessions = pgTable("sessions", {
     .notNull()
     .references(() => Bots.id, { onDelete: "cascade" }),
   telegramThreadId: varchar("telegram_thread_id"),
+  widgetThreadId: varchar("widget_thread_id"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

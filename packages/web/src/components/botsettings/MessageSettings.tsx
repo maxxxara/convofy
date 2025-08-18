@@ -11,6 +11,7 @@ import {
   Copy,
 } from "lucide-react";
 import { useState } from "react";
+import type { BotGet } from "@/utils/types";
 
 const messageTemplates = {
   welcome: [
@@ -27,13 +28,18 @@ const messageTemplates = {
   ],
 };
 
-export function MessageSettings() {
-  const [welcomeMessage, setWelcomeMessage] = useState("");
+export function MessageSettings({
+  bot,
+  setBot,
+}: {
+  bot: BotGet;
+  setBot: React.Dispatch<React.SetStateAction<BotGet | null>>;
+}) {
   const [fallbackMessage, setFallbackMessage] = useState("");
 
   const copyTemplate = (template: string, type: "welcome" | "fallback") => {
     if (type === "welcome") {
-      setWelcomeMessage(template);
+      setBot({ ...bot, welcomeMessage: template });
     } else {
       setFallbackMessage(template);
     }
@@ -68,8 +74,10 @@ export function MessageSettings() {
                   id="welcomeMessage"
                   placeholder="Hello! How can I help you today?"
                   className="min-h-24 border-slate-200 focus:border-emerald-400 focus:ring-emerald-400/20 bg-white"
-                  value={welcomeMessage}
-                  onChange={(e) => setWelcomeMessage(e.target.value)}
+                  value={bot?.welcomeMessage}
+                  onChange={(e) =>
+                    setBot({ ...bot, welcomeMessage: e.target.value })
+                  }
                 />
                 <div className="flex items-start gap-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-md">
                   <MessageCircleHeart className="w-4 h-4 mt-0.5 text-emerald-600 flex-shrink-0" />

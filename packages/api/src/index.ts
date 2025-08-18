@@ -9,7 +9,12 @@ import { activeTelegramBots } from "./services/telegram.service";
 const app = express();
 const port = process.env.PORT || 8080;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true, // Allow all origins for widget functionality
+    credentials: false, // No credentials needed for widget
+  })
+);
 app.use(express.json());
 
 app.use(
