@@ -13,6 +13,8 @@ import { TeamManager } from "./pages/TeamManager";
 import { ProjectSettings } from "./pages/ProjectSettings";
 import { SignIn } from "./pages/SignIn";
 import { SignUp } from "./pages/SignUp";
+import ProtectedRoute from "./components/utils/ProtectedRouter";
+import PublicRoute from "./components/utils/PublicRouter";
 
 function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -36,78 +38,110 @@ function App() {
         <Route
           path="/"
           element={
-            <SidebarLayout>
-              <Dashboard />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <Dashboard />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/bots"
           element={
-            <SidebarLayout>
-              <BotsManager />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <BotsManager />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/bots/settings/:botId?"
           element={
-            <SidebarLayout>
-              <BotSettings />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <BotSettings />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/knowledge"
           element={
-            <SidebarLayout>
-              <KnowledgeBase />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <KnowledgeBase />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/knowledge/upload"
           element={
-            <SidebarLayout>
-              <KnowledgeUpload />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <KnowledgeUpload />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/chat-history"
           element={
-            <SidebarLayout>
-              <ChatHistory />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <ChatHistory />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/analytics"
           element={
-            <SidebarLayout>
-              <Analytics />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <Analytics />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/team"
           element={
-            <SidebarLayout>
-              <TeamManager />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <TeamManager />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
         <Route
           path="/settings"
           element={
-            <SidebarLayout>
-              <ProjectSettings />
-            </SidebarLayout>
+            <ProtectedRoute>
+              <SidebarLayout>
+                <ProjectSettings />
+              </SidebarLayout>
+            </ProtectedRoute>
           }
         />
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
+        <Route
+          path="/signin"
+          element={
+            <PublicRoute>
+              <SignIn />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <PublicRoute>
+              <SignUp />
+            </PublicRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
