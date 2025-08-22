@@ -9,29 +9,32 @@ import {
   Bots,
   Messages,
   Sessions,
+  Users,
 } from "../lib/schema";
 import { and, eq } from "drizzle-orm";
-import { createSession, getMessages } from "../services/chat.service";
-import { sendMessage } from "../services/agent.service";
-import { convertMessagesIntoLangchainMessages } from "../lib/helpers";
+import {
+  addNewMessage,
+  createSession,
+  getMessages,
+} from "../services/chat.service";
+import { checkIfBotExistsAndPublished } from "../services/widget.service";
 
 // Schema for widget initialization
 const initWidgetSchema = z.object({
-  botId: z.string(),
+  botId: z.string().min(1, "Bot ID cannot be empty"),
   sessionId: z.string().optional(),
   userId: z.string().optional(),
 });
 
 // Schema for sending messages
 const sendWidgetMessageSchema = z.object({
-  botId: z.string(),
-  sessionId: z.string(),
-  message: z.string(),
+  sessionId: z.string().min(1, "Session ID cannot be empty"),
+  message: z.string().min(1, "Message cannot be empty"),
 });
 
 // Schema for getting bot config
 const getBotConfigSchema = z.object({
-  botId: z.string(),
+  botId: z.string().min(1, "Bot ID cannot be empty"),
 });
 
 export const widgetRouter = t.router({
@@ -40,33 +43,15 @@ export const widgetRouter = t.router({
     .input(getBotConfigSchema)
     .query(async ({ input }: { input: z.infer<typeof getBotConfigSchema> }) => {
       try {
-        const [bot] = await db
-          .select({
-            id: BotConfigs.botId,
-            name: BotConfigs.name,
-            description: BotConfigs.description,
-            avatar: BotConfigs.avatar,
-            config: BotPublications.scriptConfig,
-          })
-          .from(BotConfigs)
-          .innerJoin(Bots, eq(BotConfigs.botId, Bots.id))
-          .innerJoin(BotPublications, eq(Bots.id, BotPublications.botId))
-          .where(
-            and(
-              eq(BotConfigs.botId, input.botId),
-              eq(BotConfigs.channel, "WEB_WIDGET"),
-              eq(BotPublications.status, "PUBLISHED")
-            )
-          );
+        const bot = await checkIfBotExistsAndPublished(input.botId);
 
-        if (!bot) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Bot not found or not published",
-          });
-        }
-
-        return bot;
+        return {
+          id: bot.bot_configs?.botId,
+          name: bot.bot_configs?.name,
+          description: bot.bot_configs?.description,
+          avatar: bot.bot_configs?.avatar,
+          config: bot.bot_publications?.scriptConfig,
+        };
       } catch (error) {
         console.log("Get bot config error: ", error);
         throw new TRPCError({
@@ -83,33 +68,15 @@ export const widgetRouter = t.router({
       async ({ input }: { input: z.infer<typeof initWidgetSchema> }) => {
         try {
           // Check if bot exists and is published
-          const [bot] = await db
-            .select()
-            .from(BotConfigs)
-            .innerJoin(
-              BotPublications,
-              eq(BotConfigs.botId, BotPublications.botId)
-            )
-            .where(
-              and(
-                eq(BotConfigs.botId, input.botId),
-                eq(BotConfigs.channel, "WEB_WIDGET"),
-                eq(BotPublications.status, "PUBLISHED")
-              )
-            );
-
-          if (!bot) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Bot not found or not published",
-            });
-          }
+          const bot = await checkIfBotExistsAndPublished(input.botId);
 
           // If sessionId is provided, try to get existing session
           if (input.sessionId) {
             const [existingSession] = await db
               .select()
               .from(Sessions)
+              .leftJoin(BotConfigs, eq(Sessions.botId, BotConfigs.botId))
+              .leftJoin(Users, eq(Sessions.supportId, Users.id))
               .where(
                 and(
                   eq(Sessions.id, input.sessionId),
@@ -118,10 +85,7 @@ export const widgetRouter = t.router({
               );
 
             if (existingSession) {
-              return {
-                sessionId: existingSession.id,
-                welcomeMessage: bot.bot_configs.welcomeMessage,
-              };
+              return existingSession;
             }
           }
 
@@ -138,14 +102,56 @@ export const widgetRouter = t.router({
             content: bot.bot_configs.welcomeMessage,
           });
 
-          return {
-            sessionId: session.id,
-          };
+          const [newSession] = await db
+            .select()
+            .from(Sessions)
+            .leftJoin(BotConfigs, eq(Sessions.botId, BotConfigs.botId))
+            .leftJoin(Users, eq(Sessions.supportId, Users.id))
+            .where(and(eq(Sessions.id, session.id)));
+
+          return newSession;
         } catch (error) {
           console.log("Init session error: ", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Failed to initialize session",
+          });
+        }
+      }
+    ),
+
+  createNewSession: publicProcedure
+    .input(initWidgetSchema)
+    .mutation(
+      async ({ input }: { input: z.infer<typeof initWidgetSchema> }) => {
+        try {
+          const bot = await checkIfBotExistsAndPublished(input.botId);
+
+          const session = await createSession({
+            botId: input.botId,
+            userId: input.userId || `widget-${Date.now()}`,
+          });
+
+          // Add welcome message
+          await db.insert(Messages).values({
+            sessionId: session.id,
+            role: "ASSISTANT",
+            content: bot.bot_configs.welcomeMessage,
+          });
+
+          const [newSession] = await db
+            .select()
+            .from(Sessions)
+            .leftJoin(BotConfigs, eq(Sessions.botId, BotConfigs.botId))
+            .leftJoin(Users, eq(Sessions.supportId, Users.id))
+            .where(and(eq(Sessions.id, session.id)));
+
+          return newSession;
+        } catch (error) {
+          console.log("Create new session error: ", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create new session",
           });
         }
       }
@@ -157,67 +163,29 @@ export const widgetRouter = t.router({
     .mutation(
       async ({ input }: { input: z.infer<typeof sendWidgetMessageSchema> }) => {
         try {
+          // Additional validation
+          if (!input.sessionId || input.sessionId.trim() === "") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Session ID cannot be empty",
+            });
+          }
+
+          if (!input.message || input.message.trim() === "") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Message cannot be empty",
+            });
+          }
+
           // Verify session exists
-          const [session] = await db
-            .select()
-            .from(Sessions)
-            .where(
-              and(
-                eq(Sessions.id, input.sessionId),
-                eq(Sessions.botId, input.botId)
-              )
-            );
-
-          if (!session) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Session not found",
-            });
-          }
-
-          // Get bot config
-          const [botConfig] = await db
-            .select()
-            .from(BotConfigs)
-            .where(eq(BotConfigs.botId, input.botId));
-
-          if (!botConfig) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Bot configuration not found",
-            });
-          }
-
-          // Save user message
-          await db.insert(Messages).values({
+          const newMessage = await addNewMessage({
             sessionId: input.sessionId,
-            role: "USER",
-            content: input.message,
-          });
-
-          // Get conversation history
-          const messages = convertMessagesIntoLangchainMessages(
-            await getMessages({
-              sessionId: input.sessionId,
-              getHiddens: true,
-            })
-          );
-
-          // Generate bot response
-          const botResponse = await sendMessage({
-            messages,
-            systemPrompt: botConfig.personalityPrompt || "",
-          });
-
-          // Save bot response
-          await db.insert(Messages).values({
-            sessionId: input.sessionId,
-            role: "ASSISTANT",
-            content: botResponse,
+            message: input.message,
           });
 
           return {
-            message: botResponse,
+            message: newMessage,
           };
         } catch (error) {
           console.log("Send message error: ", error);
@@ -233,13 +201,28 @@ export const widgetRouter = t.router({
   getMessages: publicProcedure
     .input(
       z.object({
-        sessionId: z.string(),
-        botId: z.string(),
+        sessionId: z.string().min(1, "Session ID cannot be empty"),
+        botId: z.string().min(1, "Bot ID cannot be empty"),
       })
     )
     .query(
       async ({ input }: { input: { sessionId: string; botId: string } }) => {
         try {
+          // Additional validation
+          if (!input.sessionId || input.sessionId.trim() === "") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Session ID cannot be empty",
+            });
+          }
+
+          if (!input.botId || input.botId.trim() === "") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Bot ID cannot be empty",
+            });
+          }
+
           // Verify session exists
           const [session] = await db
             .select()

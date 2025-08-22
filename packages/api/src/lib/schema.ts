@@ -16,7 +16,11 @@ export const userProjectRoleEnum = pgEnum("UserProjectRole", [
   "OWNER",
   "EDITOR",
 ]);
-export const messageRoleEnum = pgEnum("MessageRole", ["USER", "ASSISTANT"]);
+export const messageRoleEnum = pgEnum("MessageRole", [
+  "USER",
+  "ASSISTANT",
+  "SUPPORT", // support message
+]);
 export const processingStatusEnum = pgEnum("ProcessingStatus", [
   "IN_PROGRESS",
   "READY",
@@ -38,17 +42,26 @@ export const Users = pgTable("users", {
   surname: varchar("surname").notNull(),
   email: varchar("email").notNull().unique(),
   password: varchar("password").notNull(),
+  avatar: varchar("avatar"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const Projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title").notNull(),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const UserProjects = pgTable(
@@ -63,8 +76,12 @@ export const UserProjects = pgTable(
       .references(() => Projects.id, { onDelete: "cascade" }),
     role: userProjectRoleEnum("role").notNull(),
     status: entityStatusEnum("status").default("ACTIVE").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (table) => [unique().on(table.userId, table.projectId)]
 );
@@ -79,8 +96,12 @@ export const ProjectLimits = pgTable("project_limits", {
   remainingDocuments: integer("remaining_documents").notNull(),
   remainingLiveInteractions: integer("remaining_live_interactions").notNull(),
   remainingUsersCount: integer("remaining_users_count").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const Bots = pgTable("bots", {
@@ -89,8 +110,12 @@ export const Bots = pgTable("bots", {
     .notNull()
     .references(() => Projects.id, { onDelete: "cascade" }),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const BotConfigs = pgTable("bot_configs", {
@@ -116,7 +141,12 @@ export const BotPublications = pgTable("bot_publications", {
   status: botPublicationStatusEnum("status").default("DRAFT").notNull(),
   telegramToken: varchar("telegram_token"),
   scriptConfig: json("script_config"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const Tickets = pgTable("tickets", {
@@ -128,8 +158,12 @@ export const Tickets = pgTable("tickets", {
     .references(() => Sessions.id, { onDelete: "cascade" }),
   data: json("data"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const Sessions = pgTable("sessions", {
@@ -141,8 +175,15 @@ export const Sessions = pgTable("sessions", {
   telegramThreadId: varchar("telegram_thread_id"),
   widgetThreadId: varchar("widget_thread_id"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  supportId: uuid("support_id").references(() => Users.id, {
+    onDelete: "cascade",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const Messages = pgTable("messages", {
@@ -154,8 +195,12 @@ export const Messages = pgTable("messages", {
   content: varchar("content").notNull(),
   isVisible: boolean("is_visible").default(true).notNull(),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const FaqQuestions = pgTable("faq_questions", {
@@ -170,8 +215,12 @@ export const FaqQuestions = pgTable("faq_questions", {
     .notNull(),
   embedding: varchar("embedding"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const Documents = pgTable("documents", {
@@ -185,8 +234,12 @@ export const Documents = pgTable("documents", {
     .default("IN_PROGRESS")
     .notNull(),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const DocumentChunks = pgTable("document_chunks", {
@@ -198,8 +251,12 @@ export const DocumentChunks = pgTable("document_chunks", {
   chunkText: varchar("chunk_text").notNull(),
   embedding: varchar("embedding"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const LiveInteractions = pgTable("live_interactions", {
@@ -210,6 +267,10 @@ export const LiveInteractions = pgTable("live_interactions", {
   interaction: json("interaction"),
   results: json("results"),
   status: entityStatusEnum("status").default("ACTIVE").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });

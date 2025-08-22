@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import ChatWidget from "./components/widget/ChatWidget";
+import Widget from "./components/widget/Widget";
 import "./index.css";
 
 interface WidgetConfig {
@@ -60,7 +60,7 @@ class ConvofyWidget {
     this.root = createRoot(this.container);
     this.root.render(
       <div style={{ pointerEvents: "auto" }}>
-        <ChatWidget config={config} />
+        <Widget config={config} />
       </div>
     );
   }

@@ -9,13 +9,11 @@ import {
 import { db } from "../lib/db";
 import { Bot, Context } from "grammy";
 import {
+  addNewMessage,
   createSession,
   createTelegramUniqueThreadId,
-  getMessages,
   getTelegramSession,
 } from "./chat.service";
-import { convertMessagesIntoLangchainMessages } from "../lib/helpers";
-import { sendMessage } from "./agent.service";
 
 export const answerTelegramMessage = async ({
   botConfig,
@@ -23,7 +21,7 @@ export const answerTelegramMessage = async ({
 }: {
   botConfig: typeof BotConfigs.$inferSelect;
   ctx: Context;
-}): Promise<string> => {
+}): Promise<typeof Messages.$inferSelect> => {
   const session = await getTelegramSession({
     botId: botConfig.botId,
     telegramThreadId: createTelegramUniqueThreadId({
@@ -32,36 +30,12 @@ export const answerTelegramMessage = async ({
     }),
   });
 
-  // Save the user's message first
-  try {
-    await db.insert(Messages).values({
-      sessionId: session.id,
-      role: "USER",
-      content: ctx.message?.text || "",
-    });
-  } catch (error) {
-    console.log("Error saving user message: ", error);
-  }
-
-  const messages = convertMessagesIntoLangchainMessages(
-    await getMessages({
-      sessionId: session.id,
-      getHiddens: true,
-    })
-  );
-
-  const message = await sendMessage({
-    messages,
-    systemPrompt: botConfig.personalityPrompt || "",
-  });
-
-  await db.insert(Messages).values({
+  const newMessage = await addNewMessage({
     sessionId: session.id,
-    role: "ASSISTANT",
-    content: message,
+    message: ctx.message?.text || "",
   });
 
-  return message;
+  return newMessage;
 };
 
 export const activeTelegramBots = async () => {
@@ -113,7 +87,9 @@ export const activeTelegramBots = async () => {
             botConfig: bot.bot_configs,
             ctx,
           });
-          ctx.reply(message);
+          if (message.role === "ASSISTANT") {
+            ctx.reply(message.content);
+          }
         } catch (error) {
           console.log("Error answering telegram message: ", error);
           ctx.reply(

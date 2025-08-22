@@ -1,6 +1,9 @@
 import { and, asc, eq, getTableColumns } from "drizzle-orm";
 import { db } from "../lib/db";
-import { Messages, Sessions } from "../lib/schema";
+import { BotConfigs, Messages, Sessions } from "../lib/schema";
+import { convertMessagesIntoLangchainMessages } from "../lib/helpers";
+import { TRPCError } from "@trpc/server";
+import { generateAnswer } from "./agent.service";
 
 export const createTelegramUniqueThreadId = ({
   botId,
@@ -69,4 +72,74 @@ export const getMessages = async ({
     .where(and(...whereConditions))
     .orderBy(asc(Messages.createdAt));
   return messages;
+};
+
+// If message is from support, just add it into database and return. If message is from user, generate answer and return.
+export const addNewMessage = async ({
+  sessionId,
+  message,
+  fromSupport = false,
+}: {
+  sessionId: string;
+  message: string;
+  fromSupport?: boolean;
+}) => {
+  const [session] = await db
+    .select()
+    .from(Sessions)
+    .leftJoin(BotConfigs, eq(Sessions.botId, BotConfigs.botId))
+    .where(eq(Sessions.id, sessionId));
+
+  if (!session) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Session not found",
+    });
+  }
+  if (!session.bot_configs) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Bot config not found",
+    });
+  }
+
+  const [insertedMessage] = await db
+    .insert(Messages)
+    .values({
+      sessionId: sessionId,
+      role: fromSupport ? "SUPPORT" : "USER",
+      content: message,
+    })
+    .returning();
+
+  if (session.sessions.supportId) {
+    return insertedMessage;
+  }
+  const messages = convertMessagesIntoLangchainMessages(
+    await getMessages({
+      sessionId: sessionId,
+      getHiddens: true,
+    })
+  );
+  const botResponse = await generateAnswer({
+    messages,
+    systemPrompt: session.bot_configs?.personalityPrompt || "",
+  });
+  const [insertedBotResponse] = await db
+    .insert(Messages)
+    .values({
+      sessionId: sessionId,
+      role: "ASSISTANT",
+      content: botResponse,
+    })
+    .returning();
+
+  await db
+    .update(Sessions)
+    .set({
+      updatedAt: new Date(),
+    })
+    .where(eq(Sessions.id, sessionId));
+
+  return insertedBotResponse;
 };

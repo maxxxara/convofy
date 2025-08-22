@@ -3,7 +3,7 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
-export const sendMessage = async ({
+export const generateAnswer = async ({
   messages,
   systemPrompt,
 }: {

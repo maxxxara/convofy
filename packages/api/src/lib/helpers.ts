@@ -24,8 +24,8 @@ export const convertMessagesIntoLangchainMessages = (messages: Message[]) => {
         return new HumanMessage(message.content);
       } else if (message.role === "ASSISTANT") {
         return new AIMessage(message.content);
-      } else if (message.role === "a") {
-        return null;
+      } else if (message.role === "SUPPORT") {
+        return new AIMessage(message.content);
       } else {
         console.log("Unknown message role", { role: message.role });
       }
