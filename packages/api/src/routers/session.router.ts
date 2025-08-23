@@ -3,7 +3,7 @@ import { projectProcedure, publicProcedure } from "../lib/procedures";
 import { t } from "../lib/trpc";
 import { db } from "../lib/db";
 import { BotConfigs, Bots, Messages, Sessions, Users } from "../lib/schema";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { addNewMessage } from "../services/chat.service";
 import {
   emitNewMessage,
@@ -14,7 +14,10 @@ import {
 
 const updateSessionSchema = z.object({
   sessionId: z.string(),
-  supportId: z.string(),
+  supportId: z.string().optional(),
+  badge: z
+    .enum(["SUPPORT_REQUESTED", "SUPPORT_ASSIGNED", "CHATBOT"])
+    .optional(),
 });
 
 export const sessionRouter = t.router({
@@ -36,7 +39,10 @@ export const sessionRouter = t.router({
           botsFromProject.map((bot) => bot.id)
         )
       )
-      .orderBy(desc(Sessions.updatedAt));
+      .orderBy(
+        sql`CASE WHEN ${Sessions.badge} = 'SUPPORT_REQUESTED' THEN 0 ELSE 1 END`,
+        desc(Sessions.updatedAt)
+      );
     return sessions;
   }),
 
@@ -60,14 +66,23 @@ export const sessionRouter = t.router({
   update: projectProcedure
     .input(updateSessionSchema)
     .mutation(async ({ ctx, input }) => {
-      const { sessionId, supportId } = input;
+      const set: Partial<typeof Sessions.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+      if (input.supportId) {
+        set.supportId = input.supportId;
+        set.badge = "SUPPORT_ASSIGNED";
+      }
+      if (input.badge) {
+        set.badge = input.badge;
+      }
       const [session] = await db
         .update(Sessions)
-        .set({ supportId, updatedAt: new Date() })
-        .where(eq(Sessions.id, sessionId))
+        .set(set)
+        .where(eq(Sessions.id, input.sessionId))
         .returning();
       if (session.supportId) {
-        emitSupportAssigned(sessionId);
+        emitSupportAssigned(input.sessionId);
       }
       return session;
     }),

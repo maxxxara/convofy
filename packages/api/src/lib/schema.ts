@@ -33,6 +33,11 @@ export const botPublicationChannelEnum = pgEnum("BotPublicationChannel", [
   "TELEGRAM",
   "WEB_WIDGET",
 ]);
+export const sessionBadgeEnum = pgEnum("SessionBadge", [
+  "SUPPORT_REQUESTED",
+  "SUPPORT_ASSIGNED",
+  "CHATBOT",
+]);
 export const entityStatusEnum = pgEnum("EntityStatus", ["ACTIVE", "DISABLED"]);
 
 // Tables
@@ -179,6 +184,8 @@ export const Sessions = pgTable("sessions", {
   supportId: uuid("support_id").references(() => Users.id, {
     onDelete: "cascade",
   }),
+  badge: sessionBadgeEnum("badge").default("CHATBOT").notNull(),
+  lastMessage: varchar("last_message"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

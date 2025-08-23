@@ -131,6 +131,13 @@ export const addNewMessage = async ({
         message: message,
       });
     }
+    await db
+      .update(Sessions)
+      .set({
+        updatedAt: new Date(),
+        lastMessage: message,
+      })
+      .where(eq(Sessions.id, sessionId));
     return insertedMessage;
   }
   const messages = convertMessagesIntoLangchainMessages(
@@ -142,6 +149,7 @@ export const addNewMessage = async ({
   const botResponse = await generateAnswer({
     messages,
     systemPrompt: session.bot_configs?.personalityPrompt || "",
+    sessionId,
   });
   const [insertedBotResponse] = await db
     .insert(Messages)
@@ -156,6 +164,7 @@ export const addNewMessage = async ({
     .update(Sessions)
     .set({
       updatedAt: new Date(),
+      lastMessage: botResponse,
     })
     .where(eq(Sessions.id, sessionId));
 

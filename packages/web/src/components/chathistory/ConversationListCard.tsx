@@ -28,7 +28,9 @@ function ConversationListCard({
         "py-[8px] cursor-pointer transition-colors hover:bg-slate-50 border-slate-200",
         isSelected
           ? "bg-blue-50 border-blue-200"
-          : "hover:bg-slate-50 border-slate-200"
+          : "hover:bg-slate-50 border-slate-200",
+        session.sessions.badge === "SUPPORT_REQUESTED" &&
+          "bg-red-50 border-red-200"
       )}
       onClick={() => setSelectedSession(session)}
     >
@@ -54,9 +56,11 @@ function ConversationListCard({
             <p className="text-xs text-muted-foreground truncate mb-1">
               {session.bot_configs?.name}
             </p>
-            <p className="text-xs text-slate-600 truncate mb-1">
-              last message...
-            </p>
+            {session.sessions.lastMessage && (
+              <p className="text-xs text-slate-600 truncate mb-1">
+                {session.sessions.lastMessage}
+              </p>
+            )}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 {formatDistanceToNow(session.sessions.updatedAt, {
@@ -66,7 +70,14 @@ function ConversationListCard({
             </div>
             {/* Support Assignment Indicator */}
             <div className="mt-2 flex items-center gap-2">
-              {session.sessions.supportId ? (
+              {session.sessions.badge === "SUPPORT_REQUESTED" ? (
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                  <span className="text-xs text-red-700 font-medium">
+                    Support requested
+                  </span>
+                </div>
+              ) : session.sessions.supportId ? (
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                   <span className="text-xs text-green-700 font-medium">
