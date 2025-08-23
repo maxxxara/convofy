@@ -7,6 +7,7 @@ import { sessionRouter } from "./session.router";
 import { userRouter } from "./user.router";
 import { widgetRouter } from "./widget.router";
 import { z } from "zod";
+// import { realtimeRouter } from "./realtime.router";
 
 export const appRouter = t.router({
   auth: authRouter,
@@ -16,6 +17,7 @@ export const appRouter = t.router({
   bot: botRouter,
   widget: widgetRouter,
   session: sessionRouter,
+  // realtime: realtimeRouter,
   // TODO: REMOVE. JUST FOR TESTING
   health: t.procedure
     .input(

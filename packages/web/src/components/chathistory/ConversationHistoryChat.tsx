@@ -7,6 +7,7 @@ import { Textarea } from "../ui/textarea";
 import { Loader2, Send } from "lucide-react";
 import ConversationHistoryUserMessage from "./ConversationHistoryUserMessage";
 import ConversationHistoryAIMessage from "./ConversationHistoryAIMessage";
+import UserTypingIndicator from "./UserTypingIndicator";
 import { trpc } from "@/utils/trpc";
 import type { SessionGetAll, SessionMessage } from "@/utils/types";
 
@@ -18,6 +19,7 @@ function ConversationHistoryChat({
   setSelectedSession: (session: SessionGetAll) => void;
 }) {
   const [message, setMessage] = useState("");
+  const [isUserTyping, setIsUserTyping] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const trpcUtils = trpc.useUtils();
   const { data: currentUser } = trpc.user.getCurrentUser.useQuery();
@@ -33,6 +35,8 @@ function ConversationHistoryChat({
   }, [fetchedMessages]);
   const { mutateAsync: updateSession } = trpc.session.update.useMutation();
   const { mutateAsync: sendMessage } = trpc.session.sendMessage.useMutation();
+  const { mutateAsync: emitTyping } = trpc.session.emitTyping.useMutation();
+  const [isSupportTyping, setIsSupportTyping] = useState(false);
 
   // Scroll to bottom when messages change or when opening a chat
   useEffect(() => {
@@ -99,6 +103,53 @@ function ConversationHistoryChat({
         selectedSession.sessions.supportId !== currentUser?.id)
     );
   }, [selectedSession, currentUser]);
+
+  useEffect(() => {
+    if (message.length > 0) {
+      if (isSupportTyping) return;
+      console.log("message.length > 0", isSupportTyping);
+      emitTyping({
+        sessionId: selectedSession.sessions.id,
+        who: "support",
+        isTyping: true,
+      });
+      setIsSupportTyping(true);
+    } else {
+      if (!isSupportTyping) return;
+      emitTyping({
+        sessionId: selectedSession.sessions.id,
+        who: "support",
+        isTyping: false,
+      });
+      setIsSupportTyping(false);
+    }
+  }, [message]);
+
+  trpc.session.onTyping.useSubscription(
+    { sessionId: selectedSession.sessions.id },
+    {
+      enabled: !!selectedSession.sessions.id,
+      onData: async (data) => {
+        if (data.data.who === "user") {
+          setIsUserTyping(data.data.isTyping);
+        }
+      },
+    }
+  );
+
+  trpc.widget.onNewMessage.useSubscription(
+    { sessionId: selectedSession.sessions.id },
+    {
+      enabled: !!selectedSession.sessions.id,
+      onData: async () => {
+        if (selectedSession.sessions.id) {
+          trpcUtils.session.getSessionMessages.invalidate({
+            sessionId: selectedSession.sessions.id,
+          });
+        }
+      },
+    }
+  );
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -194,6 +245,9 @@ function ConversationHistoryChat({
               <p className="text-sm text-muted-foreground">No messages yet</p>
             </div>
           )}
+
+          {/* User Typing Indicator */}
+          {isUserTyping && <UserTypingIndicator />}
         </div>
       </ScrollArea>
 
@@ -210,6 +264,17 @@ function ConversationHistoryChat({
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSendMessage();
+                }
+              }}
+              onBlur={(e) => {
+                e.preventDefault();
+                if (isSupportTyping) {
+                  emitTyping({
+                    sessionId: selectedSession.sessions.id,
+                    who: "support",
+                    isTyping: false,
+                  });
+                  setIsSupportTyping(false);
                 }
               }}
             />

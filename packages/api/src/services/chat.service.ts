@@ -4,6 +4,8 @@ import { BotConfigs, Messages, Sessions } from "../lib/schema";
 import { convertMessagesIntoLangchainMessages } from "../lib/helpers";
 import { TRPCError } from "@trpc/server";
 import { generateAnswer } from "./agent.service";
+import { emitNewMessage } from "./realtime.service";
+import { sendMessageToTelegramUser } from "./telegram.service";
 
 export const createTelegramUniqueThreadId = ({
   botId,
@@ -12,17 +14,19 @@ export const createTelegramUniqueThreadId = ({
   botId: string;
   chatId: string;
 }) => {
-  return `${botId}-${chatId}`;
+  return `${chatId}:${botId}`;
 };
 
 export const createSession = async ({
   botId,
   userId,
   telegramThreadId,
+  telegramToken,
 }: {
   botId: string;
   userId?: string;
   telegramThreadId?: string;
+  telegramToken?: string;
 }) => {
   const [session] = await db
     .insert(Sessions)
@@ -30,6 +34,7 @@ export const createSession = async ({
       botId,
       telegramThreadId,
       userId,
+      telegramToken,
     })
     .returning();
   return session;
@@ -112,7 +117,20 @@ export const addNewMessage = async ({
     })
     .returning();
 
+  emitNewMessage(sessionId);
+
   if (session.sessions.supportId) {
+    if (
+      session.sessions.telegramToken &&
+      session.sessions.telegramThreadId &&
+      insertedMessage.role === "SUPPORT"
+    ) {
+      await sendMessageToTelegramUser({
+        telegramToken: session.sessions.telegramToken,
+        chatId: session.sessions.telegramThreadId.split(":")[0],
+        message: message,
+      });
+    }
     return insertedMessage;
   }
   const messages = convertMessagesIntoLangchainMessages(
@@ -140,6 +158,8 @@ export const addNewMessage = async ({
       updatedAt: new Date(),
     })
     .where(eq(Sessions.id, sessionId));
+
+  emitNewMessage(sessionId);
 
   return insertedBotResponse;
 };

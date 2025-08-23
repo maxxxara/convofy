@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { trpc, trpcClient, queryClient } from "../../utils/trpc";
 import type { WidgetProps } from "./widget.types";
 import WidgetStyles from "./WidgetStyles";
@@ -7,15 +7,14 @@ import ChatHeader from "./ChatHeader";
 import MessagesArea from "./MessagesArea";
 import ChatInput from "./ChatInput";
 import type { SessionGetAll, SessionMessage } from "@/utils/types";
+import { useWidgetSubscriptions } from "./useWidgetSubscriptions";
 
 const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [session, setSession] = useState<SessionGetAll | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
-
   const { botId } = config;
-
+  const trpcUtils = trpc.useUtils();
   // tRPC mutations and queries
   const { mutateAsync: postInitSession, isPending: isInitSessionPending } =
     trpc.widget.initSession.useMutation();
@@ -25,6 +24,7 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
   } = trpc.widget.createNewSession.useMutation();
   const { mutateAsync: postSendMessage, isPending: isSendMessagePending } =
     trpc.widget.sendMessage.useMutation();
+  const { mutateAsync: emitTyping } = trpc.session.emitTyping.useMutation();
   const { data: fetchedMessages, refetch: refetchMessages } =
     trpc.widget.getMessages.useQuery(
       {
@@ -34,7 +34,8 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
       { enabled: !!session?.sessions.id }
     );
   const [messages, setMessages] = useState<SessionMessage[]>([]);
-
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const [isSupportTyping, setIsSupportTyping] = useState(false);
   useEffect(() => {
     if (fetchedMessages) {
       setMessages(fetchedMessages);
@@ -86,8 +87,6 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
       },
     ]);
 
-    setIsTyping(true);
-
     try {
       const newMessage = await postSendMessage({
         message: messageContent,
@@ -97,8 +96,6 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
       refetchMessages();
     } catch (error) {
       console.error("Failed to send message:", error);
-    } finally {
-      setIsTyping(false);
     }
   };
 
@@ -120,13 +117,46 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
     setIsOpen(!isOpen);
   };
 
+  const widgetRef = useRef<HTMLDivElement>(null);
+
   const isFetchingMessages =
     fetchedMessages === undefined && !!session?.sessions.id;
+
+  useWidgetSubscriptions({
+    session,
+    postInitSession,
+    setSession,
+    botId,
+    refetchMessages,
+    setIsTyping: setIsSupportTyping,
+  });
+
+  // Send event when user is typing
+  useEffect(() => {
+    if (inputValue.length > 0) {
+      if (isUserTyping) return;
+      emitTyping({
+        sessionId: session?.sessions.id || "",
+        who: "user",
+        isTyping: true,
+      });
+      setIsUserTyping(true);
+    } else {
+      if (!isUserTyping) return;
+      emitTyping({
+        sessionId: session?.sessions.id || "",
+        who: "user",
+        isTyping: false,
+      });
+      setIsUserTyping(false);
+    }
+  }, [inputValue]);
 
   return (
     <>
       <WidgetStyles />
       <div
+        ref={widgetRef}
         style={{
           position: "fixed",
           bottom: "24px",
@@ -164,15 +194,25 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
 
             <MessagesArea
               messages={messages || []}
-              isLoading={isInitSessionPending}
+              isLoading={session === null}
               isFetchingMessages={isFetchingMessages}
-              isTyping={isTyping}
+              isTyping={isSupportTyping}
             />
             <ChatInput
               value={inputValue}
               onChange={(value) => setInputValue(value)}
               onSubmit={sendMessage}
               disabled={isSendMessagePending || !session?.sessions.id}
+              onBlur={() => {
+                if (isUserTyping && session?.sessions.id) {
+                  emitTyping({
+                    sessionId: session.sessions.id,
+                    who: "user",
+                    isTyping: false,
+                  });
+                  setIsUserTyping(false);
+                }
+              }}
             />
           </div>
         )}

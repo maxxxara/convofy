@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TRPCError } from "@trpc/server";
+import { tracked, TRPCError } from "@trpc/server";
 import { t } from "../lib/trpc";
 import { publicProcedure } from "../lib/procedures";
 import { db } from "../lib/db";
@@ -18,6 +18,7 @@ import {
   getMessages,
 } from "../services/chat.service";
 import { checkIfBotExistsAndPublished } from "../services/widget.service";
+import { createEventSubscription } from "../services/realtime.service";
 
 // Schema for widget initialization
 const initWidgetSchema = z.object({
@@ -256,4 +257,24 @@ export const widgetRouter = t.router({
         }
       }
     ),
+
+  onSupportAssignedSession: t.procedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+      })
+    )
+    .subscription(async function* (opts) {
+      yield* createEventSubscription(
+        `session:${opts.input.sessionId}:support-assigned`
+      )(opts);
+    }),
+
+  onNewMessage: t.procedure
+    .input(z.object({ sessionId: z.string() }))
+    .subscription(async function* (opts) {
+      yield* createEventSubscription(
+        `session:${opts.input.sessionId}:new-message`
+      )(opts);
+    }),
 });

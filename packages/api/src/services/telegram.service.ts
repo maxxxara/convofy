@@ -15,6 +15,20 @@ import {
   getTelegramSession,
 } from "./chat.service";
 
+export const sendMessageToTelegramUser = async ({
+  telegramToken,
+  chatId,
+  message,
+}: {
+  telegramToken: string;
+  chatId: string;
+  message: string;
+}): Promise<boolean> => {
+  const botInstance = new Bot(telegramToken);
+  await botInstance.api.sendMessage(chatId, message);
+  return true;
+};
+
 export const answerTelegramMessage = async ({
   botConfig,
   ctx,
@@ -61,12 +75,14 @@ export const activeTelegramBots = async () => {
 
       // Send welcome message when user starts the bot
       botInstance.command("start", async (ctx) => {
+        console.log("start", ctx.api);
         const session = await createSession({
           botId: bot.bot_configs.botId,
           telegramThreadId: createTelegramUniqueThreadId({
             botId: bot.bot_configs.botId,
             chatId: ctx.chat.id.toString(),
           }),
+          telegramToken: ctx.api.token,
           userId: `${
             ctx.chat.first_name != "undefined" ? ctx.chat.first_name : ""
           } ${ctx.chat.last_name != "undefined" ? ctx.chat.last_name : ""}`,

@@ -7,6 +7,7 @@ interface ChatInputProps {
   onSubmit: () => void;
   disabled: boolean;
   placeholder?: string;
+  onBlur?: () => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -15,6 +16,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onSubmit,
   disabled,
   placeholder = "Type your message...",
+  onBlur,
 }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +62,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             onBlur={(e) => {
               e.currentTarget.style.borderColor = "#d1d5db";
               e.currentTarget.style.boxShadow = "none";
+              onBlur?.();
             }}
           />
         </div>
