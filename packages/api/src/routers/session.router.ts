@@ -2,7 +2,14 @@ import z from "zod";
 import { projectProcedure, publicProcedure } from "../lib/procedures";
 import { t } from "../lib/trpc";
 import { db } from "../lib/db";
-import { BotConfigs, Bots, Messages, Sessions, Users } from "../lib/schema";
+import {
+  BotConfigs,
+  Bots,
+  Messages,
+  Projects,
+  Sessions,
+  Users,
+} from "../lib/schema";
 import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { addNewMessage } from "../services/chat.service";
 import {
@@ -10,6 +17,7 @@ import {
   emitSupportAssigned,
   emitTyping,
   createEventSubscription,
+  emitSessionUpdated,
 } from "../services/realtime.service";
 
 const updateSessionSchema = z.object({
@@ -123,5 +131,29 @@ export const sessionRouter = t.router({
       yield* createEventSubscription(`session:${opts.input.sessionId}:typing`)(
         opts
       );
+    }),
+
+  onUpdated: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .subscription(async function* (opts) {
+      yield* createEventSubscription(`session:${opts.input.projectId}:updated`)(
+        opts
+      );
+    }),
+
+  emitUpdated: publicProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [result] = await db
+        .select({
+          projectId: Bots.projectId,
+        })
+        .from(Sessions)
+        .leftJoin(Bots, eq(Sessions.botId, Bots.id))
+        .where(eq(Sessions.id, input.sessionId));
+      console.log("result", result);
+      if (result?.projectId) {
+        emitSessionUpdated(result.projectId);
+      }
     }),
 });

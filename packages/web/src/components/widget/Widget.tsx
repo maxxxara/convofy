@@ -18,6 +18,8 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
   // tRPC mutations and queries
   const { mutateAsync: postInitSession, isPending: isInitSessionPending } =
     trpc.widget.initSession.useMutation();
+  const { mutateAsync: emitSessionUpdated } =
+    trpc.session.emitUpdated.useMutation();
   const {
     mutateAsync: createNewSession,
     isPending: isCreateNewSessionPending,
@@ -54,6 +56,9 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
         botId,
         sessionId: existingSessionId || undefined,
         userId: `widget-${Date.now()}`,
+      });
+      emitSessionUpdated({
+        sessionId: result.sessions.id,
       });
 
       setSession(result);
@@ -107,6 +112,9 @@ const WidgetInner: React.FC<WidgetProps> = ({ config }) => {
     });
     setSession(result);
     localStorage.setItem(`convofy-session`, result.sessions.id);
+    emitSessionUpdated({
+      sessionId: result.sessions.id,
+    });
     refetchMessages();
   };
 

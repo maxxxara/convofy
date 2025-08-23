@@ -24,6 +24,10 @@ export const emitSupportAssigned = (sessionId: string) => {
   realtimeEvents.emit(`session:${sessionId}:support-assigned`);
 };
 
+export const emitSessionUpdated = (sessionId: string) => {
+  realtimeEvents.emit(`session:${sessionId}:updated`);
+};
+
 export const emitTyping = (
   sessionId: string,
   who: "user" | "support",

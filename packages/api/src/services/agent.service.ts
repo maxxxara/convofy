@@ -6,8 +6,9 @@ import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { t } from "../lib/trpc";
 import { db } from "../lib/db";
-import { Sessions } from "../lib/schema";
+import { Bots, Projects, Sessions } from "../lib/schema";
 import { eq } from "drizzle-orm";
+import { emitSessionUpdated } from "./realtime.service";
 
 // Human assistance tool for when users want to talk to a human
 const humanAssistanceTool = new DynamicStructuredTool({
@@ -27,13 +28,23 @@ const humanAssistanceTool = new DynamicStructuredTool({
     if (!sessionId) {
       return message;
     }
-    const [session] = await db
+    await db
       .update(Sessions)
       .set({
         badge: "SUPPORT_REQUESTED",
       })
       .where(eq(Sessions.id, sessionId ?? ""))
       .returning();
+    const [project] = await db
+      .select({
+        id: Bots.projectId,
+      })
+      .from(Sessions)
+      .leftJoin(Bots, eq(Sessions.botId, Bots.id))
+      .where(eq(Sessions.id, sessionId ?? ""));
+    if (project?.id) {
+      emitSessionUpdated(project.id);
+    }
     return message;
   },
 });

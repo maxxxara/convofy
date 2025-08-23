@@ -12,7 +12,22 @@ function ConversationList({
   currentUserId: string;
 }) {
   const { data: sessions } = trpc.session.getAll.useQuery();
+  const { data: currentProject } = trpc.project.getCurrent.useQuery();
   const trpcUtils = trpc.useUtils();
+
+  trpc.session.onUpdated.useSubscription(
+    {
+      projectId: currentProject?.id || "",
+    },
+    {
+      enabled: !!currentProject?.id,
+      onData: () => {
+        console.log("onData");
+        trpcUtils.session.getAll.invalidate();
+      },
+    }
+  );
+
   return (
     <div className="max-w-80 border-r border-slate-200 flex flex-col flex-1 min-h-0">
       <div className="p-4 border-b border-slate-200 flex-shrink-0">
